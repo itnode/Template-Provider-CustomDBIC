@@ -5,14 +5,138 @@ use warnings;
 
 use base qw/ Template::Provider /;
 
-use Date::Parse;
+use Carp qw( croak );
+use Date::Parse ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
-# ->_init( \%options )
-# Check that valid Template::Provider::DBIC-specific arguments have been
-# supplied and store the appropriate values.
+=head1 NAME
+
+Template::Provider::DBIC - Load templates using DBIx::Class
+
+
+=head1 SYNOPSIS
+
+    use My::DBIC::Schema;
+    use Template;
+    use Template::Provider::DBIC;
+
+    my $schema = My::DBIC::Schema->connect(
+        $dsn, $user, $password, \%options
+    );
+    my $resultset = $schema->resultset('Template');
+
+If all of your templates are stored in a single table the most convenient
+method is to pass the provider a L<DBIx::Class::ResultSet>.
+
+    my $template = Template->new({
+        LOAD_TEMPLATES => [
+            Template::Provider::DBIC->new({
+                RESULTSET => $resultset,
+                # Other template options like COMPILE_EXT...
+            }),
+        ],
+    });
+
+    # Process the template 'my_template' from resultset 'Template'.
+    $template->process('my_template');
+    # Process the template 'other_template' from resultset 'Template'.
+    $template->process('other_template');
+
+Alternatively, where your templates are stored in several tables you can pass
+a L<DBIx::Class::Schema> and specify the result set and template name in the
+form C<ResultSet/template_name>.
+
+    my $template2 = Template->new({
+        LOAD_TEMPLATES => [
+            Template::Provider::DBIC->new({
+                SCHEMA => $schema,
+                # Other template options...
+            }),
+        ],
+    });
+
+    # Process the template 'my_template' from resultset 'Template'.
+    $template->process('Template/my_template');
+    # Process the template 'my_template' from resultset 'Other'.
+    $template->process('Other/my_template');
+
+In cases where both are supplied, the more specific RESULTSET will take
+precedence.
+
+
+=head1 DESCRIPTION
+
+Template::Provider::DBIC allows a L<Template> object to fetch its data using
+L<DBIx::Class> instead of, or in addition to, the default filesystem-based
+L<Template::Provider>.
+
+
+=head2 SCHEMA
+
+This provider requires a schema containing at least the following:
+
+=over
+
+=item
+
+A column containing the template name. When C<$template-E<gt>provider($name)>
+is called the provider will search this column for the corresponding C<$name>.
+For this reason the column must be a unique key, else an exception will be
+raised.
+
+=item
+
+A column containing the actual template content itself. This is what will be
+compiled and returned when the template is processed.
+
+=item
+
+A column containing the time the template was last modified. This must return
+- or be inflated to - a date string recognisable by L<Date::Parse>.
+
+=back
+
+
+=head2 OPTIONS
+
+In addition to supplying a RESULTSET or SCHEMA and the standard
+L<Template::Provider> options, you may set the following preferences:
+
+=over 4
+
+=item COLUMN_NAME
+
+The table column that contains the template name. This will default to 'name'.
+
+=item COLUMN_CONTENT
+
+The table column that contains the template data itself. This will default to
+'content'.
+
+=item COLUMN_MODIFIED
+
+The table column that contains the date that the template was last modified.
+This will default to 'modified'.
+
+=back
+
+
+=head1 METHODS
+
+=begin comment
+
+->_init( \%options )
+
+Check that valid Template::Provider::DBIC-specific arguments have been
+supplied and store the appropriate values. See above for the available
+options.
+
+=end comment
+
+=cut
+
 sub _init {
     my ( $self, $options ) = @_;
     
@@ -61,10 +185,14 @@ sub _init {
 }
 
 
+=head2 ->fetch( $name )
 
-# ->fetch( $name )
-# Return a compiled template for the given name, using the cache where
-# possible.
+This method is called automatically during L<Template>'s C<-E<gt>process()>
+and returns a compiled template for the given C<$name>, using the cache where
+possible.
+
+=cut
+
 sub fetch {
     my ( $self, $name ) = @_;
     
@@ -159,10 +287,17 @@ sub fetch {
 }
 
 
+=begin comment
 
-# ->_load( $name )
-# Load the template from the database and return a hash containing its name,
-# content, the time it was last modified, and the time it was loaded (now).
+->_load( $name )
+
+Load the template from the database and return a hash containing its name,
+content, the time it was last modified, and the time it was loaded (now).
+
+=end comment
+
+=cut
+
 sub _load {
     my ( $self, $name ) = @_;
     my ( $data, $error );
@@ -202,11 +337,18 @@ sub _load {
 }
 
 
+=begin comment
 
-# ->_modified( $name [, $time ] )
-# When called with a single argument, returns the modification time of the
-# given template. When called with a second argument it returns true if $name
-# has been modified since $time.
+->_modified( $name, $time )
+
+When called with a single argument, returns the modification time of the
+given template. When called with a second argument it returns true if $name
+has been modified since $time.
+
+=end comment
+
+=cut
+
 sub _modified {
     my ( $self, $name, $time ) = @_;
     
@@ -218,7 +360,7 @@ sub _modified {
     my $resultset = $self->{ RESULTSET }
                  || $self->{ SCHEMA }->resultset($table);
                  
-    # Try to retrieve the template from the database.
+    # Try to retrieve the template from the database...
     my $template = $resultset->find(
         $name, { key => $self->{ COLUMN_NAME } }
     );
@@ -233,127 +375,10 @@ sub _modified {
 }
 
 
-
-1;
+1; # End of the module code; everything from here is documentation...
 __END__
-=head1 NAME
 
-Template::Provider::DBIC - Load templates using DBIx::Class.
-
-
-=head1 VERSION
-
-This document describes Template::Provider::DBIC version 0.01
-
-
-=head1 SYNOPSIS
-
-    use My::DBIC::Schema;
-    use Template;
-    use Template::Provider::DBIC;
-
-    my $schema = My::DBIC::Schema->connect(
-        $dsn, $user, $password, \%options
-    );
-    my $resultset = $schema->resultset('Template');
-
-If all of your templates are stored in a single table the most convenient
-method is to pass the provider a L<DBIx::Class::ResultSet>.
-
-    my $template = Template->new({
-        LOAD_TEMPLATES => [
-            Template::Provider::DBIC->new({
-                RESULTSET => $resultset,
-                # Other template options like COMPILE_EXT...
-            }),
-        ],
-    });
-
-    # Process the template 'my_template' from resultset 'Template'.
-    $template->process('my_template');
-    # Process the template 'other_template' from resultset 'Template'.
-    $template->process('other_template');
-
-Alternatively, where your templates are stored in several tables you can pass
-a L<DBIx::Class::Schema> and specify the result set and template name in the
-form C<ResultSet/template_name>.
-
-    my $template2 = Template->new({
-        LOAD_TEMPLATES => [
-            Template::Provider::DBIC->new({
-                SCHEMA => $schema,
-                # Other template options...
-            }),
-        ],
-    });
-
-    # Process the template 'my_template' from resultset 'Template'.
-    $template->process('Template/my_template');
-    # Process the template 'my_template' from resultset 'Other'.
-    $template->process('Other/my_template');
-
-In cases where both are supplied, the more specific RESULTSET will take
-precedence.
-
-
-=head1 DESCRIPTION
-
-Template::Provider::DBIC allows a L<Template> object to fetch its data using
-L<DBIx::Class> instead of, or in addition to, the default filesystem-based
-L<Template::Provider>.
-
-
-=head2 SCHEMA
-
-This provider requires a schema containing at least the following:
-
-=over
-
-=item
-
-A column containing the template name. When C<$template-E<gt>provider($name)>
-is called the provider will search this column for the corresponding C<$name>.
-For this reason the column must be a unique key, else an exception will be
-raised.
-
-=item
-
-A column containing the actual template content itself. This is what will be
-compiled and returned when the template is processed.
-
-=item
-
-A column containing the time the template was last modified. This must return
- - or be inflated to - a date string recognisable by L<Date::Parse>.
-
-=back
-
-
-=head2 OPTIONS
-
-In addition to supplying a RESULTSET or SCHEMA and the standard
-L<Template::Provider> options, you may set the following preferences:
-
-=over 4
-
-=item COLUMN_NAME
-
-The table column that contains the template name. This will default to 'name'.
-
-=item COLUMN_CONTENT
-
-The table column that contains the template data itself. This will default to
-'content'.
-
-=item COLUMN_MODIFIED
-
-The table column that contains the date that the template was last modified.
-This will default to 'modified'.
-
-=back
-
-
-=head2 USE WITH OTHER PROVIDERS
+=head1 USE WITH OTHER PROVIDERS
 
 By default Template::Provider::DBIC will raise an exception when it cannot
 find the named template. When TOLERANT is set to true it will defer processing
@@ -372,7 +397,7 @@ to the next provider specified in LOAD_TEMPLATES where available. For example:
     });
 
 
-=head2 CACHING
+=head1 CACHING
 
 When caching is enabled, by setting COMPILE_DIR and/or COMPILE_EXT,
 Template::Provider::DBIC will create a directory consisting of the database
@@ -380,13 +405,9 @@ DSN and table name. This should prevent conflicts with other databases and
 providers.
 
 
-=head1 PUBLIC METHODS
+=head1 SEE ALSO
 
-=head2 ->fetch( $name )
-
-This method is called automatically during L<Template>'s C<-E<gt>process()>
-and returns a compiled template for the given C<$name>, using the cache where
-possible.
+L<Template>, L<Template::Provider>, L<DBIx::Class::Schema>
 
 
 =head1 DIAGNOSTICS
@@ -420,17 +441,27 @@ will raise an exception.
 
 =head1 DEPENDENCIES
 
-Template::Provider::DBIC requires the following modules:
-
 =over
 
 =item
 
-L<Template::Provider>
+L<Carp>
 
 =item
 
 L<Date::Parse>
+
+=item
+
+L<File::Path>
+
+=item
+
+L<File::Spec>
+
+=item
+
+L<Template::Provider>
 
 =back
 
@@ -457,11 +488,11 @@ You may also look for information at:
 
 =item * Template::Provider::DBIC
 
-L<http://perlprogrammer.co.uk/module/Template::Provider::DBIC/>
+L<http://perlprogrammer.co.uk/modules/Template::Provider::DBIC/>
 
 =item * AnnoCPAN: Annotated CPAN documentation
 
-L<http://annocpan.org/dist/Template-Provider-DBIC>
+L<http://annocpan.org/dist/Template-Provider-DBIC/>
 
 =item * RT: CPAN's request tracker
 
@@ -469,14 +500,15 @@ L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-DBIC>
 
 =item * Search CPAN
 
-L<http://search.cpan.org/dist/Template-Provider-DBIC>
+L<http://search.cpan.org/dist/Template-Provider-DBIC/>
 
 =back
 
 
 =head1 AUTHOR
 
-Dave Cardwell, C<cpan at davecardwell.co.uk>
+Dave Cardwell <dcardwell@cpan.org>
+
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -484,3 +516,6 @@ Copyright (c) 2007 Dave Cardwell. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.
+
+
+=cut

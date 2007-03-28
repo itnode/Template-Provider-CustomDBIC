@@ -1,9 +1,15 @@
-#!perl
+#!perl -wT
 
-if (!require Test::Perl::Critic) {
-    Test::More::plan(
-        skip_all => "Test::Perl::Critic required for testing PBP compliance"
-    );
+use strict;
+use warnings;
+
+use Test::More;
+
+
+eval 'use Test::Perl::Critic';
+if ( $@ ) {
+    plan skip_all => 'Test::Perl::Critic required to test for best-practices';
 }
-
-Test::Perl::Critic::all_critic_ok();
+else {
+    Test::Perl::Critic::all_critic_ok();
+}

@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More tests => 6;
 
 use lib qw( t/lib );
 use TemplateProviderDBICTest;
@@ -14,8 +14,6 @@ use Template::Provider::DBIC;
 
 my $schema    = TemplateProviderDBICTest->init_schema();
 my $resultset = $schema->resultset('Template');
-
-plan tests => 6;
 
 
 # Test Template::Provider::DBIC with a SCHEMA.
@@ -48,7 +46,6 @@ $template->process( 'test', {}, \$resultset_test );
 is( $resultset_test,
     'This test was a success',
     'Parsed template by RESULTSET' );
-
 
 
 1;
