@@ -176,54 +176,65 @@ sub fetch {
 
     # Determine the name of the table we're dealing with.
     my ( $table, $reference, $column ) = split( "/", $name );
-
-    # Determine the path this template would be cached to.
-    my $compiled_filename = $self->_compiled_filename( $self->{DSN} . "/$table/$reference/$column" );
-
+        
     my ( $data, $error, $slot );
 
-    # Is caching enabled?
-    my $size = $self->{SIZE};
-    my $caching = !defined $size || $size;
+    if ( $table && $reference && $column ) { 
+   
 
-    # If caching is enabled and an entry already exists, refresh its cache
-    # slot and extract the data...
-    if ( $caching && ( $slot = $self->{LOOKUP}->{"$table/$reference/$column"} ) ) {
-        ( $data, $error ) = $self->_refresh($slot);
-        $data = $slot->[Template::Provider::DATA] unless $error;
-    }
+        # Determine the path this template would be cached to.
+        my $compiled_filename = $self->_compiled_filename( $self->{DSN} . "/$table/$reference/$column" );
 
-    # ...otherwise if this template has already been compiled and cached (but
-    # not by this object) try to load it from the disk, providing it hasn't
-    # been modified...
-    elsif ( $compiled_filename
-        && -f $compiled_filename
-        && !$self->_modified( "$table/$reference/$column", ( stat(_) )[9] ) )
-    {
-        $data = $self->_load_compiled($compiled_filename);
-        $error = $self->error() unless $data;
+        # Is caching enabled?
+        my $size = $self->{SIZE};
+        my $caching = !defined $size || $size;
 
-        # Save the new data where caching is enabled.
-        $self->store( "$table/$name", $data ) if $caching && !$error;
-    }
-
-    # ...else there is nothing already cached for this template so load it
-    # from the database.
-    else {
-        ( $data, $error ) = $self->_load("$table/$reference/$column");
-
-        if ( !$error ) {
-            ( $data, $error ) = $self->_compile( $data, $compiled_filename );
+        # If caching is enabled and an entry already exists, refresh its cache
+        # slot and extract the data...
+        if ( $caching && ( $slot = $self->{LOOKUP}->{"$table/$reference/$column"} ) ) {
+            ( $data, $error ) = $self->_refresh($slot);
+            $data = $slot->[Template::Provider::DATA] unless $error;
         }
 
-        # Save the new data where caching is enabled.
-        if ( !$error ) {
+        # ...otherwise if this template has already been compiled and cached (but
+        # not by this object) try to load it from the disk, providing it hasn't
+        # been modified...
+        elsif ( $compiled_filename
+            && -f $compiled_filename
+            && !$self->_modified( "$table/$reference/$column", ( stat(_) )[9] ) )
+        {
+            $data = $self->_load_compiled($compiled_filename);
+            $error = $self->error() unless $data;
 
-            $data = $caching  ? $self->_store( "$table/$reference/$column", $data ) : $data->{data};
+            # Save the new data where caching is enabled.
+            $self->store( "$table/$reference/$column", $data ) if $caching && !$error;
         }
-    }
 
-    return ( $data, $error );
+            # ...else there is nothing already cached for this template so load it
+            # from the database.
+        else {
+
+            ( $data, $error ) = $self->_load("$table/$reference/$column");
+
+            if ( !$error ) {
+            
+                ( $data, $error ) = $self->_compile( $data, $compiled_filename );
+            }
+
+            # Save the new data where caching is enabled.
+            if ( !$error ) {
+
+                $data = $caching  ? $self->_store( "$table/$reference/$column", $data ) : $data->{data};
+            }
+        }
+    
+        return ( $data, $error );
+        
+    } else {
+
+        return ( undef, Template::Constants::STATUS_DECLINED );
+ 
+    }
 }
 
 =begin comment
@@ -243,27 +254,32 @@ sub _load {
 
     my ( $table, $reference, $column ) = split( "/", $name );
 
-    my $resultset = $self->{RESULTSET};
+    if ( $table && $reference && $column ) { 
 
-    # Try to retrieve the template from the database.
-    my $template = $resultset->find( $reference, { key => $self->{COLUMN_NAME} } );
+        my $resultset = $self->{RESULTSET};
 
-    if ($template) {
+        # Try to retrieve the template from the database.
+        my $template = $resultset->find( $reference, { key => $self->{COLUMN_NAME} } );
 
-        $data = {
-            name => "$table/$reference/$column",
-            text => $template->get_column($column),
-            time => Date::Parse::str2time( $template->get_column( $self->{COLUMN_MODIFIED} ) ),
-            load => time,
-        };
+        if ($template) {
 
-    } elsif ( $self->{TOLERANT} ) {
+            $data = {
+                name => "$table/$reference/$column",
+                text => $template->get_column($column),
+                time => Date::Parse::str2time( $template->get_column( $self->{COLUMN_MODIFIED} ) ),
+                load => time,
+            };
+
+        } else {
+
+            # Not found in RESULTSET 
+            ( $data, $error ) = ( "Could not retrieve '$reference' from the result set '$table'", Template::Constants::STATUS_ERROR );
+        }
+
+    } else { 
 
         ( $data, $error ) = ( undef, Template::Constants::STATUS_DECLINED );
 
-    } else {
-
-        ( $data, $error ) = ( "Could not retrieve '$name' from the result set '$table'", Template::Constants::STATUS_ERROR );
     }
 
     return ( $data, $error );
@@ -304,14 +320,12 @@ __END__
 =head1 USE WITH OTHER PROVIDERS
 
 By default Template::Provider::CustomDBIC will raise an exception when it cannot
-find the named template. When TOLERANT is set to true it will defer processing
-to the next provider specified in LOAD_TEMPLATES where available. For example:
+find the named template 
 
     my $template = Template->new({
         LOAD_TEMPLATES => [
             Template::Provider::CustomDBIC->new({
                 RESULTSET => $resultset,
-                TOLERANT  => 1,
             }),
             Template::Provider->new({
                 INCLUDE_PATH => $path_to_templates,
@@ -355,9 +369,6 @@ result set to search in.
 Couldn't find the result set %s in the given L<DBIx::Class::Schema> object.
 
 =item C<< Could not retrieve '%s' from the result set '%s' >>
-
-Unless TOLERANT is set to true failure to find a template with the given name
-will raise an exception.
 
 =back
 
