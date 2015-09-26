@@ -10,7 +10,6 @@ use Date::Parse ();
 
 our $VERSION = '0.02';
 
-
 =head1 NAME
 
 Template::Provider::DBIC - Load templates using DBIx::Class
@@ -139,51 +138,48 @@ options.
 
 sub _init {
     my ( $self, $options ) = @_;
-    
+
     # Provide defaults as necessary.
-    $self->{ COLUMN_NAME }     = $options->{ COLUMN_NAME }     || 'name';
-    $self->{ COLUMN_MODIFIED } = $options->{ COLUMN_MODIFIED } || 'modified';
-    $self->{ COLUMN_CONTENT }  = $options->{ COLUMN_CONTENT }  || 'content';
-    
+    $self->{COLUMN_NAME}     = $options->{COLUMN_NAME}     || 'name';
+    $self->{COLUMN_MODIFIED} = $options->{COLUMN_MODIFIED} || 'modified';
+    $self->{COLUMN_CONTENT}  = $options->{COLUMN_CONTENT}  || 'content';
+
     # Ensure that a RESULTSET or SCHEMA has been specified. In the case of
     # both RESULTSET takes precedence.
     my $storage;
-    if ( defined $options->{ RESULTSET } ) {
-        $self->{ RESULTSET } = $options->{ RESULTSET };
-        $storage = $self->{ RESULTSET }->result_source->schema->storage;
+
+    if ( defined $options->{RESULTSET} ) {
+        $self->{RESULTSET} = $options->{RESULTSET};
+        $storage = $self->{RESULTSET}->result_source->schema->storage;
+    } elsif ( defined $options->{SCHEMA} ) {
+        $self->{SCHEMA} = $options->{SCHEMA};
+        $storage = $self->{SCHEMA}->storage;
+    } else {    # neither specified
+        return $self->error( 'A valid DBIx::Class::Schema or ::ResultSet is required' );
     }
-    elsif ( defined $options->{ SCHEMA } ) {
-        $self->{ SCHEMA } = $options->{ SCHEMA };
-        $storage = $self->{ SCHEMA }->storage;
-    }
-    else { # neither specified
-        return $self->error(
-            'A valid DBIx::Class::Schema or ::ResultSet is required'
-        );
-    }
-    
+
     # The connection DSN will be used when caching templates.
-    $self->{ DSN } = $storage->connect_info->[0];
-    
+    $self->{DSN} = $storage->connect_info->[0];
+
     # Use Template::Provider's ->_init() to create the COMPILE_DIR...
     $self->SUPER::_init($options);
-    
+
     # ...and add a directory for templates cached by this provider.
-    if ( $self->{ COMPILE_DIR } ) {
+    if ( $self->{COMPILE_DIR} ) {
+
         # Adapted from Template::Provider 2.91
         require File::Spec;
         require File::Path;
-        
-        my $wdir = $self->{ DSN };
+
+        my $wdir = $self->{DSN};
         $wdir =~ s/://g if $^O eq 'MSWin32';
-        $wdir =~ /(.*)/; # untaint
-        $wdir =  File::Spec->catfile( $self->{ COMPILE_DIR }, $1 );
+        $wdir =~ /(.*)/;    # untaint
+        $wdir = File::Spec->catfile( $self->{COMPILE_DIR}, $1 );
         File::Path::mkpath($wdir) unless -d $wdir;
     }
-    
+
     return $self;
 }
-
 
 =head2 ->fetch( $name )
 
@@ -195,78 +191,74 @@ possible.
 
 sub fetch {
     my ( $self, $name ) = @_;
-    
+
     # We're not interested in GLOBs or file handles.
     if ( ref $name ) {
         return ( undef, Template::Constants::STATUS_DECLINED );
     }
-    
-    
+
     # Determine the name of the table we're dealing with.
     my $table;
-    if ( $self->{ RESULTSET } ) {
+
+    if ( $self->{RESULTSET} ) {
+
         # We can extract the table name from a DBIx::Class::ResultSet.
-        $table = $self->{ RESULTSET }->result_source->name;
-    }
-    else {
+        $table = $self->{RESULTSET}->result_source->name;
+    } else {
+
         # For DBIx::Class::Schema, however, we have to extract the table name
         # from the given template name if it is of the form
         # "$table/$template".
         if ( $name =~ m#^([^/]+)/(.+)$# ) {
             ( $table, $name ) = ( $1, $2 );
-        }
-        else {
+        } else {
+
             # In tolerant mode decline to handle the template, otherwise raise
             # an error.
-            return $self->{ TOLERANT }
-                ? ( undef, Template::Constants::STATUS_DECLINED )
-                : ( "$name not valid: must be of the form "
-                                     . '"$table/$template"',
-                    Template::Constants::STATUS_ERROR )
-            ;
+            return $self->{TOLERANT}
+              ? ( undef, Template::Constants::STATUS_DECLINED )
+              : ( "$name not valid: must be of the form " . '"$table/$template"', Template::Constants::STATUS_ERROR );
         }
-        
+
         # Make sure this is a valid resultset.
-        eval { $self->{ SCHEMA }->resultset($table); };
-        if ( $@ ) {
-            return $self->{ TOLERANT }
-                ? ( undef, Template::Constants::STATUS_DECLINED )
-                : ( "'$table' is not a valid result set for the given schema",
-                    Template::Constants::STATUS_ERROR )
-            ;
+        eval { $self->{SCHEMA}->resultset($table); };
+        if ($@) {
+            return $self->{TOLERANT}
+              ? ( undef, Template::Constants::STATUS_DECLINED )
+              : ( "'$table' is not a valid result set for the given schema", Template::Constants::STATUS_ERROR );
         }
     }
-    
-    
+
     # Determine the path this template would be cached to.
-    my $compiled_filename = $self->_compiled_filename(
-        $self->{ DSN } . "/$table/$name"
-    );
-    
+    my $compiled_filename = $self->_compiled_filename( $self->{DSN} . "/$table/$name" );
+
     my ( $data, $error, $slot );
-    
+
     # Is caching enabled?
-    my $size    = $self->{ SIZE };
+    my $size = $self->{SIZE};
     my $caching = !defined $size || $size;
-    
-    
+
     # If caching is enabled and an entry already exists, refresh its cache
     # slot and extract the data...
-    if ( $caching && ($slot = $self->{ LOOKUP }->{ "$table/$name" }) ) {
+    if ( $caching && ( $slot = $self->{LOOKUP}->{"$table/$name"} ) ) {
         ( $data, $error ) = $self->_refresh($slot);
-        $data = $slot->[ Template::Provider::DATA ] unless $error;
+        $data = $slot->[Template::Provider::DATA] unless $error;
     }
+
     # ...otherwise if this template has already been compiled and cached (but
     # not by this object) try to load it from the disk, providing it hasn't
     # been modified...
-    elsif ( $compiled_filename && -f $compiled_filename
-         && !$self->_modified( "$table/$name", (stat(_))[9] ) ) {
-        $data  = $self->_load_compiled($compiled_filename);
+    elsif ($compiled_filename
+        && -f $compiled_filename
+        && !$self->_modified( "$table/$name", ( stat(_) )[9] ) )
+    {
+        $data = $self->_load_compiled($compiled_filename);
         $error = $self->error() unless $data;
-        
+
         # Save the new data where caching is enabled.
         $self->store( "$table/$name", $data ) if $caching && !$error;
     }
+
     # ...else there is nothing already cached for this template so load it
     # from the database.
     else {
@@ -274,18 +266,18 @@ sub fetch {
         if ( !$error ) {
             ( $data, $error ) = $self->_compile( $data, $compiled_filename );
         }
-        
+
         # Save the new data where caching is enabled.
         if ( !$error ) {
-            $data = $caching ? $self->_store( "$table/$name", $data )
-                             : $data->{ data }
-            ;
+            $data =
+                $caching
+              ? $self->_store( "$table/$name", $data )
+              : $data->{data};
         }
     }
-    
+
     return ( $data, $error );
 }
-
 
 =begin comment
 
@@ -301,41 +293,32 @@ content, the time it was last modified, and the time it was loaded (now).
 sub _load {
     my ( $self, $name ) = @_;
     my ( $data, $error );
-    
+
     my $table;
     if ( $name =~ m#^([^/]+)/(.+)$# ) {
         ( $table, $name ) = ( $1, $2 );
     }
-    
-    my $resultset = $self->{ RESULTSET }
-                 || $self->{ SCHEMA }->resultset($table);
-    
+
+    my $resultset = $self->{RESULTSET}
+      || $self->{SCHEMA}->resultset($table);
+
     # Try to retrieve the template from the database.
-    my $template = $resultset->find(
-        $name, { key => $self->{ COLUMN_NAME } }
-    );
-    if ( $template ) {
+    my $template = $resultset->find( $name, { key => $self->{COLUMN_NAME} } );
+    if ($template) {
         $data = {
             name => "$table/$name",
-            text => $template->get_column( $self->{ COLUMN_CONTENT } ),
-            time => Date::Parse::str2time(
-                        $template->get_column( $self->{ COLUMN_MODIFIED } )
-                    ),
+            text => $template->get_column( $self->{COLUMN_CONTENT} ),
+            time => Date::Parse::str2time( $template->get_column( $self->{COLUMN_MODIFIED} ) ),
             load => time,
         };
-    }
-    elsif ( $self->{ TOLERANT } ) {
+    } elsif ( $self->{TOLERANT} ) {
         ( $data, $error ) = ( undef, Template::Constants::STATUS_DECLINED );
     } else {
-        ( $data, $error ) = (
-            "Could not retrieve '$name' from the result set '$table'",
-            Template::Constants::STATUS_ERROR
-        );
+        ( $data, $error ) = ( "Could not retrieve '$name' from the result set '$table'", Template::Constants::STATUS_ERROR );
     }
-    
+
     return ( $data, $error );
 }
-
 
 =begin comment
 
@@ -351,31 +334,26 @@ has been modified since $time.
 
 sub _modified {
     my ( $self, $name, $time ) = @_;
-    
+
     my $table;
     if ( $name =~ m#^([^/]+)/(.+)$# ) {
         ( $table, $name ) = ( $1, $2 );
     }
-    
-    my $resultset = $self->{ RESULTSET }
-                 || $self->{ SCHEMA }->resultset($table);
-                 
+
+    my $resultset = $self->{RESULTSET}
+      || $self->{SCHEMA}->resultset($table);
+
     # Try to retrieve the template from the database...
-    my $template = $resultset->find(
-        $name, { key => $self->{ COLUMN_NAME } }
-    );
-    
+    my $template = $resultset->find( $name, { key => $self->{COLUMN_NAME} } );
+
     require Date::Parse;
-    my $modified = $template && Date::Parse::str2time(
-                                    $template->{ COLUMN_MODIFIED }
-                                )
-                || return $time ? 1 : 0;
-    
+    my $modified = $template && Date::Parse::str2time( $template->{COLUMN_MODIFIED} )
+      || return $time ? 1 : 0;
+
     return $time ? $modified > $time : $modified;
 }
 
-
-1; # End of the module code; everything from here is documentation...
+1;    # End of the module code; everything from here is documentation...
 __END__
 
 =head1 USE WITH OTHER PROVIDERS
