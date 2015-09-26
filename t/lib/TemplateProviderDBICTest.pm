@@ -1,5 +1,5 @@
 package # hide from PAUSE
-    TemplateProviderDBICTest;
+    TemplateProviderCustomDBICTest;
 
 use strict;
 use warnings;

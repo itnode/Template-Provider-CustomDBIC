@@ -1,17 +1,17 @@
 #!/usr/bin/perl -wT
 
-use My::DBIC::Schema;
+use My::CustomDBIC::Schema;
 use Template;
-use Template::Provider::DBIC;
+use Template::Provider::CustomDBIC;
 
-my $schema = My::DBIC::Schema->connect(
+my $schema = My::CustomDBIC::Schema->connect(
     $dsn, $user, $password, \%options
 );
 my $resultset = $schema->resultset('Template');
 
 my $template = Template->new({
     LOAD_TEMPLATES => [
-        Template::Provider::DBIC->new({
+        Template::Provider::CustomDBIC->new({
             RESULTSET => $resultset,
             # Other template options like COMPILE_EXT...
         }),

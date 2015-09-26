@@ -1,4 +1,4 @@
-package Template::Provider::DBIC;
+package Template::Provider::CustomDBIC;
 
 use strict;
 use warnings;
@@ -12,16 +12,16 @@ our $VERSION = '0.02';
 
 =head1 NAME
 
-Template::Provider::DBIC - Load templates using DBIx::Class
+Template::Provider::CustomDBIC - Load templates using DBIx::Class
 
 
 =head1 SYNOPSIS
 
-    use My::DBIC::Schema;
+    use My::CustomDBIC::Schema;
     use Template;
-    use Template::Provider::DBIC;
+    use Template::Provider::CustomDBIC;
 
-    my $schema = My::DBIC::Schema->connect(
+    my $schema = My::CustomDBIC::Schema->connect(
         $dsn, $user, $password, \%options
     );
     my $resultset = $schema->resultset('Template');
@@ -31,7 +31,7 @@ method is to pass the provider a L<DBIx::Class::ResultSet>.
 
     my $template = Template->new({
         LOAD_TEMPLATES => [
-            Template::Provider::DBIC->new({
+            Template::Provider::CustomDBIC->new({
                 RESULTSET => $resultset,
                 # Other template options like COMPILE_EXT...
             }),
@@ -49,7 +49,7 @@ form C<ResultSet/template_name>.
 
     my $template2 = Template->new({
         LOAD_TEMPLATES => [
-            Template::Provider::DBIC->new({
+            Template::Provider::CustomDBIC->new({
                 SCHEMA => $schema,
                 # Other template options...
             }),
@@ -67,7 +67,7 @@ precedence.
 
 =head1 DESCRIPTION
 
-Template::Provider::DBIC allows a L<Template> object to fetch its data using
+Template::Provider::CustomDBIC allows a L<Template> object to fetch its data using
 L<DBIx::Class> instead of, or in addition to, the default filesystem-based
 L<Template::Provider>.
 
@@ -128,7 +128,7 @@ This will default to 'modified'.
 
 ->_init( \%options )
 
-Check that valid Template::Provider::DBIC-specific arguments have been
+Check that valid Template::Provider::CustomDBIC-specific arguments have been
 supplied and store the appropriate values. See above for the available
 options.
 
@@ -358,13 +358,13 @@ __END__
 
 =head1 USE WITH OTHER PROVIDERS
 
-By default Template::Provider::DBIC will raise an exception when it cannot
+By default Template::Provider::CustomDBIC will raise an exception when it cannot
 find the named template. When TOLERANT is set to true it will defer processing
 to the next provider specified in LOAD_TEMPLATES where available. For example:
 
     my $template = Template->new({
         LOAD_TEMPLATES => [
-            Template::Provider::DBIC->new({
+            Template::Provider::CustomDBIC->new({
                 RESULTSET => $resultset,
                 TOLERANT  => 1,
             }),
@@ -378,7 +378,7 @@ to the next provider specified in LOAD_TEMPLATES where available. For example:
 =head1 CACHING
 
 When caching is enabled, by setting COMPILE_DIR and/or COMPILE_EXT,
-Template::Provider::DBIC will create a directory consisting of the database
+Template::Provider::CustomDBIC will create a directory consisting of the database
 DSN and table name. This should prevent conflicts with other databases and
 providers.
 
@@ -391,7 +391,7 @@ L<Template>, L<Template::Provider>, L<DBIx::Class::Schema>
 =head1 DIAGNOSTICS
 
 In addition to errors raised by L<Template::Provider> and L<DBIx::Class>,
-Template::Provider::DBIC may generate the following error messages:
+Template::Provider::CustomDBIC may generate the following error messages:
 
 =over
 
@@ -401,7 +401,7 @@ One of the SCHEMA or RESULTSET configuration options I<must> be provided.
 
 =item C<< %s not valid: must be of the form $table/$template >>
 
-When using Template::Provider::DBIC with a L<DBIx::Class::Schema> object, the
+When using Template::Provider::CustomDBIC with a L<DBIx::Class::Schema> object, the
 template name passed to C<-E<gt>process()> must start with the name of the
 result set to search in.
 
@@ -451,34 +451,34 @@ L<DBIx::Class::Schema> or L<DBIx::Class::ResultSet>.
 
 Please report any bugs or feature requests to
 C<bug-template-provider-dbic at rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Template-Provider-DBIC>.
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Template-Provider-CustomDBIC>.
 
 
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Template::Provider::DBIC
+    perldoc Template::Provider::CustomDBIC
 
 You may also look for information at:
 
 =over 4
 
-=item * Template::Provider::DBIC
+=item * Template::Provider::CustomDBIC
 
-L<http://perlprogrammer.co.uk/modules/Template::Provider::DBIC/>
+L<http://perlprogrammer.co.uk/modules/Template::Provider::CustomDBIC/>
 
 =item * AnnoCPAN: Annotated CPAN documentation
 
-L<http://annocpan.org/dist/Template-Provider-DBIC/>
+L<http://annocpan.org/dist/Template-Provider-CustomDBIC/>
 
 =item * RT: CPAN's request tracker
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-DBIC>
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-CustomDBIC>
 
 =item * Search CPAN
 
-L<http://search.cpan.org/dist/Template-Provider-DBIC/>
+L<http://search.cpan.org/dist/Template-Provider-CustomDBIC/>
 
 =back
 

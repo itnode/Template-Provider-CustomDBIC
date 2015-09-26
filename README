@@ -1,12 +1,12 @@
 NAME
-    Template::Provider::DBIC - Load templates using DBIx::Class
+    Template::Provider::CustomDBIC - Load templates using DBIx::Class
 
 SYNOPSIS
-        use My::DBIC::Schema;
+        use My::CustomDBIC::Schema;
         use Template;
-        use Template::Provider::DBIC;
+        use Template::Provider::CustomDBIC;
 
-        my $schema = My::DBIC::Schema->connect(
+        my $schema = My::CustomDBIC::Schema->connect(
             $dsn, $user, $password, \%options
         );
         my $resultset = $schema->resultset('Template');
@@ -16,7 +16,7 @@ SYNOPSIS
 
         my $template = Template->new({
             LOAD_TEMPLATES => [
-                Template::Provider::DBIC->new({
+                Template::Provider::CustomDBIC->new({
                     RESULTSET => $resultset,
                     # Other template options like COMPILE_EXT...
                 }),
@@ -34,7 +34,7 @@ SYNOPSIS
 
         my $template2 = Template->new({
             LOAD_TEMPLATES => [
-                Template::Provider::DBIC->new({
+                Template::Provider::CustomDBIC->new({
                     SCHEMA => $schema,
                     # Other template options...
                 }),
@@ -50,7 +50,7 @@ SYNOPSIS
     precedence.
 
 DESCRIPTION
-    Template::Provider::DBIC allows a Template object to fetch its data
+    Template::Provider::CustomDBIC allows a Template object to fetch its data
     using DBIx::Class instead of, or in addition to, the default
     filesystem-based Template::Provider.
 
@@ -92,14 +92,14 @@ METHODS
     possible.
 
 USE WITH OTHER PROVIDERS
-    By default Template::Provider::DBIC will raise an exception when it
+    By default Template::Provider::CustomDBIC will raise an exception when it
     cannot find the named template. When TOLERANT is set to true it will
     defer processing to the next provider specified in LOAD_TEMPLATES where
     available. For example:
 
         my $template = Template->new({
             LOAD_TEMPLATES => [
-                Template::Provider::DBIC->new({
+                Template::Provider::CustomDBIC->new({
                     RESULTSET => $resultset,
                     TOLERANT  => 1,
                 }),
@@ -111,7 +111,7 @@ USE WITH OTHER PROVIDERS
 
 CACHING
     When caching is enabled, by setting COMPILE_DIR and/or COMPILE_EXT,
-    Template::Provider::DBIC will create a directory consisting of the
+    Template::Provider::CustomDBIC will create a directory consisting of the
     database DSN and table name. This should prevent conflicts with other
     databases and providers.
 
@@ -120,14 +120,14 @@ SEE ALSO
 
 DIAGNOSTICS
     In addition to errors raised by Template::Provider and DBIx::Class,
-    Template::Provider::DBIC may generate the following error messages:
+    Template::Provider::CustomDBIC may generate the following error messages:
 
     "A valid DBIx::Class::Schema or ::ResultSet is required"
         One of the SCHEMA or RESULTSET configuration options *must* be
         provided.
 
     "%s not valid: must be of the form $table/$template"
-        When using Template::Provider::DBIC with a DBIx::Class::Schema
+        When using Template::Provider::CustomDBIC with a DBIx::Class::Schema
         object, the template name passed to "->process()" must start with
         the name of the result set to search in.
 
@@ -157,30 +157,30 @@ BUGS
     Please report any bugs or feature requests to
     "bug-template-provider-dbic at rt.cpan.org", or through the web
     interface at
-    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Template-Provider-DBIC>.
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Template-Provider-CustomDBIC>.
 
 SUPPORT
     You can find documentation for this module with the perldoc command.
 
-        perldoc Template::Provider::DBIC
+        perldoc Template::Provider::CustomDBIC
 
     You may also look for information at:
 
-    *   Template::Provider::DBIC
+    *   Template::Provider::CustomDBIC
 
-        <http://perlprogrammer.co.uk/modules/Template::Provider::DBIC/>
+        <http://perlprogrammer.co.uk/modules/Template::Provider::CustomDBIC/>
 
     *   AnnoCPAN: Annotated CPAN documentation
 
-        <http://annocpan.org/dist/Template-Provider-DBIC/>
+        <http://annocpan.org/dist/Template-Provider-CustomDBIC/>
 
     *   RT: CPAN's request tracker
 
-        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-DBIC>
+        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-CustomDBIC>
 
     *   Search CPAN
 
-        <http://search.cpan.org/dist/Template-Provider-DBIC/>
+        <http://search.cpan.org/dist/Template-Provider-CustomDBIC/>
 
 AUTHOR
     Dave Cardwell <dcardwell@cpan.org>

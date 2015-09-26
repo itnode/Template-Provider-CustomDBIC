@@ -6,21 +6,21 @@ use warnings;
 use Test::More tests => 6;
 
 use lib qw( t/lib );
-use TemplateProviderDBICTest;
+use TemplateProviderCustomDBICTest;
 
 use Template;
-use Template::Provider::DBIC;
+use Template::Provider::CustomDBIC;
 
 
-my $schema    = TemplateProviderDBICTest->init_schema();
+my $schema    = TemplateProviderCustomDBICTest->init_schema();
 my $resultset = $schema->resultset('Template');
 
 
-# Test Template::Provider::DBIC with a SCHEMA.
-my $schema_provider = Template::Provider::DBIC->new({
+# Test Template::Provider::CustomDBIC with a SCHEMA.
+my $schema_provider = Template::Provider::CustomDBIC->new({
                           SCHEMA => $schema,
                       });
-isa_ok( $schema_provider, 'Template::Provider::DBIC' );
+isa_ok( $schema_provider, 'Template::Provider::CustomDBIC' );
 isa_ok( $schema_provider, 'Template::Provider'       );
 
 my $template2 = Template->new({ LOAD_TEMPLATES => [ $schema_provider ] });
@@ -32,11 +32,11 @@ is( $schema_test,
     'Parsed template by SCHEMA' );
 
 
-# Test Template::Provider::DBIC with a RESULTSET.
-my $resultset_provider = Template::Provider::DBIC->new({
+# Test Template::Provider::CustomDBIC with a RESULTSET.
+my $resultset_provider = Template::Provider::CustomDBIC->new({
                              RESULTSET => $resultset,
                          });
-isa_ok( $resultset_provider, 'Template::Provider::DBIC' );
+isa_ok( $resultset_provider, 'Template::Provider::CustomDBIC' );
 isa_ok( $resultset_provider, 'Template::Provider'       );
 
 my $template = Template->new({ LOAD_TEMPLATES => [ $resultset_provider ] });

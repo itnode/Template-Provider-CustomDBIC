@@ -1,5 +1,5 @@
 ---
-name: Template-Provider-DBIC
+name: Template-Provider-CustomDBIC
 version: 0.02
 author:
   - 'Dave Cardwell <dcardwell@cpan.org>'
@@ -17,8 +17,8 @@ build_requires:
   DBIx::Class: 0
   Test::More: 0
 provides:
-  Template::Provider::DBIC:
-    file: lib/Template/Provider/DBIC.pm
+  Template::Provider::CustomDBIC:
+    file: lib/Template/Provider/CustomDBIC.pm
     version: 0.02
 generated_by: Module::Build version 0.2807
 meta-spec:
