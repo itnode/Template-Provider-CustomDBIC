@@ -38,31 +38,8 @@ method is to pass the provider a L<DBIx::Class::ResultSet>.
         ],
     });
 
-    # Process the template 'my_template' from resultset 'Template'.
-    $template->process('my_template');
-    # Process the template 'other_template' from resultset 'Template'.
-    $template->process('other_template');
-
-Alternatively, where your templates are stored in several tables you can pass
-a L<DBIx::Class::Schema> and specify the result set and template name in the
-form C<ResultSet/template_name>.
-
-    my $template2 = Template->new({
-        LOAD_TEMPLATES => [
-            Template::Provider::CustomDBIC->new({
-                SCHEMA => $schema,
-                # Other template options...
-            }),
-        ],
-    });
-
-    # Process the template 'my_template' from resultset 'Template'.
-    $template->process('Template/my_template');
-    # Process the template 'my_template' from resultset 'Other'.
-    $template->process('Other/my_template');
-
-In cases where both are supplied, the more specific RESULTSET will take
-precedence.
+    # Process the template in 'column' referred by reference from resultset 'Template'.
+    $template->process('table/reference/column');
 
 
 =head1 DESCRIPTION
@@ -149,13 +126,13 @@ sub _init {
     my $storage;
 
     if ( defined $options->{RESULTSET} ) {
+
         $self->{RESULTSET} = $options->{RESULTSET};
         $storage = $self->{RESULTSET}->result_source->schema->storage;
-    } elsif ( defined $options->{SCHEMA} ) {
-        $self->{SCHEMA} = $options->{SCHEMA};
-        $storage = $self->{SCHEMA}->storage;
+
     } else {    # neither specified
-        return $self->error( 'A valid DBIx::Class::Schema or ::ResultSet is required' );
+
+        return $self->error('A valid DBIx::Class::ResultSet is required');
     }
 
     # The connection DSN will be used when caching templates.
@@ -198,39 +175,10 @@ sub fetch {
     }
 
     # Determine the name of the table we're dealing with.
-    my $table;
-
-    if ( $self->{RESULTSET} ) {
-
-        # We can extract the table name from a DBIx::Class::ResultSet.
-        $table = $self->{RESULTSET}->result_source->name;
-    } else {
-
-        # For DBIx::Class::Schema, however, we have to extract the table name
-        # from the given template name if it is of the form
-        # "$table/$template".
-        if ( $name =~ m#^([^/]+)/(.+)$# ) {
-            ( $table, $name ) = ( $1, $2 );
-        } else {
-
-            # In tolerant mode decline to handle the template, otherwise raise
-            # an error.
-            return $self->{TOLERANT}
-              ? ( undef, Template::Constants::STATUS_DECLINED )
-              : ( "$name not valid: must be of the form " . '"$table/$template"', Template::Constants::STATUS_ERROR );
-        }
-
-        # Make sure this is a valid resultset.
-        eval { $self->{SCHEMA}->resultset($table); };
-        if ($@) {
-            return $self->{TOLERANT}
-              ? ( undef, Template::Constants::STATUS_DECLINED )
-              : ( "'$table' is not a valid result set for the given schema", Template::Constants::STATUS_ERROR );
-        }
-    }
+    my ( $table, $reference, $column ) = split( "/", $name );
 
     # Determine the path this template would be cached to.
-    my $compiled_filename = $self->_compiled_filename( $self->{DSN} . "/$table/$name" );
+    my $compiled_filename = $self->_compiled_filename( $self->{DSN} . "/$table/$reference/$column" );
 
     my ( $data, $error, $slot );
 
@@ -240,7 +188,7 @@ sub fetch {
 
     # If caching is enabled and an entry already exists, refresh its cache
     # slot and extract the data...
-    if ( $caching && ( $slot = $self->{LOOKUP}->{"$table/$name"} ) ) {
+    if ( $caching && ( $slot = $self->{LOOKUP}->{"$table/$reference/$column"} ) ) {
         ( $data, $error ) = $self->_refresh($slot);
         $data = $slot->[Template::Provider::DATA] unless $error;
     }
@@ -248,9 +196,9 @@ sub fetch {
     # ...otherwise if this template has already been compiled and cached (but
     # not by this object) try to load it from the disk, providing it hasn't
     # been modified...
-    elsif ($compiled_filename
+    elsif ( $compiled_filename
         && -f $compiled_filename
-        && !$self->_modified( "$table/$name", ( stat(_) )[9] ) )
+        && !$self->_modified( "$table/$reference/$column", ( stat(_) )[9] ) )
     {
         $data = $self->_load_compiled($compiled_filename);
         $error = $self->error() unless $data;
@@ -262,17 +210,16 @@ sub fetch {
     # ...else there is nothing already cached for this template so load it
     # from the database.
     else {
-        ( $data, $error ) = $self->_load("$table/$name");
+        ( $data, $error ) = $self->_load("$table/$reference/$column");
+
         if ( !$error ) {
             ( $data, $error ) = $self->_compile( $data, $compiled_filename );
         }
 
         # Save the new data where caching is enabled.
         if ( !$error ) {
-            $data =
-                $caching
-              ? $self->_store( "$table/$name", $data )
-              : $data->{data};
+
+            $data = $caching  ? $self->_store( "$table/$reference/$column", $data ) : $data->{data};
         }
     }
 
@@ -294,26 +241,28 @@ sub _load {
     my ( $self, $name ) = @_;
     my ( $data, $error );
 
-    my $table;
-    if ( $name =~ m#^([^/]+)/(.+)$# ) {
-        ( $table, $name ) = ( $1, $2 );
-    }
+    my ( $table, $reference, $column ) = split( "/", $name );
 
-    my $resultset = $self->{RESULTSET}
-      || $self->{SCHEMA}->resultset($table);
+    my $resultset = $self->{RESULTSET};
 
     # Try to retrieve the template from the database.
-    my $template = $resultset->find( $name, { key => $self->{COLUMN_NAME} } );
+    my $template = $resultset->find( $reference, { key => $self->{COLUMN_NAME} } );
+
     if ($template) {
+
         $data = {
-            name => "$table/$name",
-            text => $template->get_column( $self->{COLUMN_CONTENT} ),
+            name => "$table/$reference/$column",
+            text => $template->get_column($column),
             time => Date::Parse::str2time( $template->get_column( $self->{COLUMN_MODIFIED} ) ),
             load => time,
         };
+
     } elsif ( $self->{TOLERANT} ) {
+
         ( $data, $error ) = ( undef, Template::Constants::STATUS_DECLINED );
+
     } else {
+
         ( $data, $error ) = ( "Could not retrieve '$name' from the result set '$table'", Template::Constants::STATUS_ERROR );
     }
 
@@ -335,20 +284,16 @@ has been modified since $time.
 sub _modified {
     my ( $self, $name, $time ) = @_;
 
-    my $table;
-    if ( $name =~ m#^([^/]+)/(.+)$# ) {
-        ( $table, $name ) = ( $1, $2 );
-    }
+    my ( $table, $reference, $column ) = split( "/", $name );
 
-    my $resultset = $self->{RESULTSET}
-      || $self->{SCHEMA}->resultset($table);
+    my $resultset = $self->{RESULTSET};
 
     # Try to retrieve the template from the database...
-    my $template = $resultset->find( $name, { key => $self->{COLUMN_NAME} } );
+    my $template = $resultset->find( $reference, { key => $self->{COLUMN_NAME} } );
 
     require Date::Parse;
-    my $modified = $template && Date::Parse::str2time( $template->{COLUMN_MODIFIED} )
-      || return $time ? 1 : 0;
+
+    my $modified = $template && Date::Parse::str2time( $template->{COLUMN_MODIFIED} ) || return $time ? 1 : 0;
 
     return $time ? $modified > $time : $modified;
 }
@@ -446,13 +391,10 @@ L<Template::Provider>
 Additionally, use of this module requires an object of the class
 L<DBIx::Class::Schema> or L<DBIx::Class::ResultSet>.
 
-
 =head1 BUGS
 
-Please report any bugs or feature requests to
-C<bug-template-provider-dbic at rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Template-Provider-CustomDBIC>.
-
+Please report any bugs or feature requests through the web interface at
+L<https://github.com/itnode/Template-Provider-CustomDBIC/issues>
 
 =head1 SUPPORT
 
@@ -466,31 +408,25 @@ You may also look for information at:
 
 =item * Template::Provider::CustomDBIC
 
-L<http://perlprogrammer.co.uk/modules/Template::Provider::CustomDBIC/>
-
 =item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Template-Provider-CustomDBIC/>
 
 =item * RT: CPAN's request tracker
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Template-Provider-CustomDBIC>
+L<https://github.com/itnode/Template-Provider-CustomDBIC/issues>
 
 =item * Search CPAN
 
-L<http://search.cpan.org/dist/Template-Provider-CustomDBIC/>
-
 =back
-
 
 =head1 AUTHOR
 
-Dave Cardwell <dcardwell@cpan.org>
+Jens Gassmann <jegade@cpan.org>
 
+Based on work from Dave Cardwell <dcardwell@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2007 Dave Cardwell. All rights reserved.
+Copyright (c) 2015 Jens Gassmann. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.
