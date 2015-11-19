@@ -1,5 +1,9 @@
 Revision history for Template-Provider-CustomDBIC
 
+{{$NEXT}}
+	
+        Migrate to minil for release 
+
 0.02	2007-03-28:
 		Tidied up distribution:
 			* Improved documentation and moved it inline
