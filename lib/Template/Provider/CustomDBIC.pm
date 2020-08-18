@@ -8,7 +8,7 @@ use base qw/ Template::Provider /;
 use Carp qw( croak );
 use Date::Parse ();
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 =head1 NAME
 
