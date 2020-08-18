@@ -179,7 +179,7 @@ sub fetch {
         
     my ( $data, $error, $slot );
 
-    if ( $table && $reference && $column ) { 
+    if ( $table && $reference && $column && scalar split("/", $name) == 3 ) {
    
 
         # Determine the path this template would be cached to.
